@@ -1,5 +1,7 @@
 import os
 import requests
+import telegram
+from time import sleep
 from urllib.parse import urlsplit
 from datetime import datetime
 from dotenv import load_dotenv
@@ -37,7 +39,7 @@ def fetch_spacex_last_launch():
                 images.append(image)
             break
     for i, val in enumerate(images):
-        download_image(val, f'spacex{i}.jpeg', dirname='SpaceX')
+        download_image(val, f'spacex{i}.jpeg')
 
 
 def fetch_nasa_image(token):
@@ -51,7 +53,7 @@ def fetch_nasa_image(token):
     for i, val in enumerate(data):
         file_extension = fetch_file_extension(val['url'])
         file_name = f'NASA{i}{file_extension}'
-        download_image(val['url'], file_name, dirname='NASA')
+        download_image(val['url'], file_name)
 
 
 def fetch_nasa_epic_image(token):
@@ -73,15 +75,30 @@ def fetch_nasa_epic_image(token):
     for image in images_info:
         url = f'https://epic.gsfc.nasa.gov/archive/natural/{year}/{month}/{day}/png/{image}.png'
         file_extension = fetch_file_extension(url)
-        download_image(url, f'epic_{image}{file_extension}', dirname='NASO_EPIC')
+        download_image(url, f'epic_{image}{file_extension}')
+
+
+def publish_telegram_message(token, sleep_time):
+    bot = telegram.Bot(token)
+    image_list = os.listdir('images')
+    while True:
+        if image_list:
+            image = image_list.pop(0)
+            bot.send_document(chat_id='@SpacexPhoto', document=open(f'images/{image}', 'rb'))
+        else:
+            break
+        sleep(sleep_time)
 
 
 def main():
     load_dotenv()
     nasa_token = os.environ['NASA_API']
+    telegram_token = os.environ['TELEGRAM_API']
+    sleep_time = os.environ['SLEEP_TIME']
     fetch_spacex_last_launch()
     fetch_nasa_image(nasa_token)
     fetch_nasa_epic_image(nasa_token)
+    publish_telegram_message(telegram_token, sleep_time)
 
 
 if __name__ == "__main__":
