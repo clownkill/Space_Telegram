@@ -9,18 +9,12 @@ from dotenv import load_dotenv
 
 def fetch_file_extension(url):
     url_file_path = urlsplit(url).path
-    file_name = os.path.split(url_file_path)[-1]
-    file_extension = os.path.splitext(file_name)[-1]
-    return file_extension
+    return os.path.splitext(url_file_path)[-1]
 
 
 def download_image(url, filename, dirname=''):
     file_path = f'images/{dirname}/'
-    directory = os.path.dirname(file_path)
-    try:
-        os.stat(directory)
-    except:
-        os.mkdir(directory)
+    os.makedirs(file_path, exist_ok=True)
     response = requests.get(url)
     response.raise_for_status()
     with open(f'images/{dirname}/{filename}', 'wb') as file:
@@ -38,8 +32,8 @@ def fetch_spacex_last_launch():
             for image in launch_images:
                 images.append(image)
             break
-    for i, val in enumerate(images):
-        download_image(val, f'spacex{i}.jpeg')
+    for i, launch_photo in enumerate(images):
+        download_image(launch_photo, f'spacex{i}.jpeg')
 
 
 def fetch_nasa_image(token):
@@ -50,10 +44,10 @@ def fetch_nasa_image(token):
     }
     response = requests.get(url, params=params)
     data = response.json()
-    for i, val in enumerate(data):
-        file_extension = fetch_file_extension(val['url'])
+    for i, nasa_image_data in enumerate(data):
+        file_extension = fetch_file_extension(nasa_image_data['url'])
         file_name = f'NASA{i}{file_extension}'
-        download_image(val['url'], file_name)
+        download_image(nasa_image_data['url'], file_name)
 
 
 def fetch_nasa_epic_image(token):
@@ -78,16 +72,16 @@ def fetch_nasa_epic_image(token):
         download_image(url, f'epic_{image}{file_extension}')
 
 
-def publish_telegram_message(token, sleep_time):
+def publish_telegram_message(token, chat_id, sleep_time):
     bot = telegram.Bot(token)
-    image_list = os.listdir('images')
+    images = os.listdir('images')
     while True:
-        if image_list:
-            image = image_list.pop(0)
-            bot.send_document(chat_id='@SpacexPhoto', document=open(f'images/{image}', 'rb'))
-        else:
+        if not images:
             break
-        sleep(sleep_time)
+        image = images.pop(0)
+        with open(f'images/{image}', 'rb') as file:
+            bot.send_document(chat_id=chat_id, document=file)
+        sleep(int(sleep_time))
 
 
 def main():
@@ -95,10 +89,11 @@ def main():
     nasa_token = os.environ['NASA_API']
     telegram_token = os.environ['TELEGRAM_API']
     sleep_time = os.environ['SLEEP_TIME']
+    chat_id = os.environ['CHAT_ID']
     fetch_spacex_last_launch()
     fetch_nasa_image(nasa_token)
     fetch_nasa_epic_image(nasa_token)
-    publish_telegram_message(telegram_token, sleep_time)
+    publish_telegram_message(telegram_token, chat_id, sleep_time)
 
 
 if __name__ == "__main__":
